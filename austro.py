@@ -28,10 +28,9 @@ def obtener_hoja(dict_hojas, nombre_buscado):
   return pd.DataFrame()
 
 
-# Carga global de datos
 todas_las_hojas = cargar_todas_las_hojas(EXCEL_URL)
 
-# 1. Carga de Retiros
+# 1. Retiros por Año
 df_raw_retiros = obtener_hoja(todas_las_hojas, "Retiros")
 df_retiros = df_raw_retiros[["Fecha", "Valor"]].dropna().copy()
 df_retiros["Fecha_dt"] = pd.to_datetime(
@@ -52,11 +51,9 @@ tabla_anos["Retiro_Dia"] = tabla_anos["Total_USD"] / 365
 tabla_anos["Año"] = tabla_anos["Año"].astype(str)
 tabla_anos.columns = ["Año", "Nº Retiros", "Total", "Retiro / Día"]
 
-# 2. Carga de Transferencias Interbancarias
+# 2. Transferencias Interbancarias
 df_raw_trans = obtener_hoja(todas_las_hojas, "Transferencias Interbancarias")
 df_trans = df_raw_trans[["Institución", "Valor"]].dropna().copy()
-
-# Unificar variantes de Jardín Azuayo
 df_trans.loc[
     df_trans["Institución"].str.contains(
         "JARDIN AZUAYO|Jardín Azuayo", case=False, na=False
@@ -79,30 +76,50 @@ tabla_trans.columns = [
     "Total Transferido",
 ]
 
-# 3. Carga de Compras por Internet
+# 3. Compras por Internet (Categorización directa en Python desde Columna C)
 df_raw_compras = obtener_hoja(todas_las_hojas, "Compras por internet")
 
-if not df_raw_compras.empty:
-  col_est = (
-      "Descripción Resumida"
-      if "Descripción Resumida" in df_raw_compras.columns
-      else df_raw_compras.columns[7]
-  )
-  col_val = (
-      "Valor" if "Valor" in df_raw_compras.columns else df_raw_compras.columns[1]
-  )
 
-  df_compras = df_raw_compras[[col_est, col_val]].dropna().copy()
-  df_compras.columns = ["Establecimiento", "Valor"]
+def categorizar_descripcion(desc):
+  desc_str = str(desc).upper()
+  if "AMAZON" in desc_str or "AMZN" in desc_str:
+    return "Amazon"
+  elif "ALIEXPRESS" in desc_str or "ALIPAY" in desc_str:
+    return "Aliexpress"
+  elif "SHEIN" in desc_str:
+    return "Shein"
+  elif "EBAY" in desc_str:
+    return "eBay"
+  elif "TEMU" in desc_str:
+    return "Temu"
+  elif any(
+      k in desc_str
+      for k in [
+          "TRANSEXPRES",
+          "LAARBOX",
+          "FLETE",
+          "EXPRESSWEB",
+          "TRANS EXPRESS",
+      ]
+  ):
+    return "Flete Laarbox"
+  elif "FARMASOL" in desc_str:
+    return "FARMASOL LOS NOGALES CUENCA EC"
+  else:
+    return desc_str.strip()
 
-  df_compras["Establecimiento"] = (
-      df_compras["Establecimiento"].astype(str).str.strip()
+
+if (
+    not df_raw_compras.empty
+    and "Descripción" in df_raw_compras.columns
+    and "Valor" in df_raw_compras.columns
+):
+  df_compras = df_raw_compras[["Descripción", "Valor"]].dropna().copy()
+  df_compras["Establecimiento"] = df_compras["Descripción"].apply(
+      categorizar_descripcion
   )
   df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
   df_compras = df_compras.dropna(subset=["Valor"])
-  df_compras = df_compras[
-      ~df_compras["Establecimiento"].isin(["nan", "None", "", "NaN"])
-  ]
 
   tabla_compras = (
       df_compras.groupby("Establecimiento", as_index=False)["Valor"]
@@ -190,6 +207,7 @@ def render_custom_table(df):
         z-index: 30 !important;
         width: max-content !important;
         white-space: nowrap !important;
+        background-color: #FFEB3B !important;
         background-clip: padding-box !important;
         font-weight: bold;
         color: #000000 !important;
@@ -239,7 +257,6 @@ def render_custom_table(df):
   return html
 
 
-# Organización de tablas en pestañas
 tab1, tab2, tab3 = st.tabs(
     ["Retiros por Año", "Transferencias Interbancarias", "Compras por Internet"]
 )
