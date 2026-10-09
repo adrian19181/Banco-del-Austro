@@ -6,7 +6,7 @@ import streamlit as st
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 if st.button("🔄 Actualizar Datos", use_container_width=True):
-  st.rerun()
+    st.rerun()
 
 st.title("Banco del Austro")
 
@@ -15,7 +15,7 @@ EXCEL_URL = "https://docs.google.com/spreadsheets/d/19aw00haXlThBf0AlHwMsYNabeFG
 
 @st.cache_data(ttl=60)
 def cargar_datos(url, hoja):
-  return pd.read_excel(url, sheet_name=hoja)
+    return pd.read_excel(url, sheet_name=hoja)
 
 
 # Carga de Retiros
@@ -68,7 +68,7 @@ tabla_trans.columns = [
 
 
 def render_custom_table(df):
-  css = """
+    css = """
     <style>
     .table-container {
         max-height: 420px;
@@ -144,50 +144,53 @@ def render_custom_table(df):
     </style>
     """
 
-  html = css + '<div class="table-container"><table class="custom-table"><thead><tr>'
+    html = css + '<div class="table-container"><table class="custom-table"><thead><tr>'
 
-  for idx, col in enumerate(df.columns):
-    sticky_class = ' class="col-sticky"' if idx == 0 else ""
-    clean_col = str(col).replace(" ($)", "").replace("$", "")
-    header_text = (
-        clean_col.replace(" ", "<br>") if len(clean_col) > 10 else clean_col
-    )
-    html += f"<th{sticky_class}>{header_text}</th>"
+    for idx, col in enumerate(df.columns):
+        sticky_class = ' class="col-sticky"' if idx == 0 else ""
+        clean_col = str(col).replace(" ($)", "").replace("$", "")
+        header_text = (
+            clean_col.replace(" ", "<br>") if len(clean_col) > 10 else clean_col
+        )
+        html += f"<th{sticky_class}>{header_text}</th>"
 
-  html += "</tr></thead><tbody>"
+    html += "</tr></thead><tbody>"
 
-  for row_idx, row in df.iterrows():
-    row_class = "row-even" if row_idx % 2 == 0 else "row-odd"
-    html += f'<tr class="{row_class}">'
-    for col_idx, val in enumerate(row):
-      sticky_class = ' class="col-sticky"' if col_idx == 0 else ""
-      if col_idx == 0:
-        formatted_val = str(val)
-      elif isinstance(val, (int, float)):
-        col_name = str(df.columns[col_idx])
-        if (
-            "Total" in col_name
-            or "Día" in col_name
-            or "Transferido" in col_name
-        ):
-          formatted_val = f"${val:,.2f}"
-        else:
-          formatted_val = f"{int(val):,}" if val == int(val) else f"{val:,}"
-      else:
-        formatted_val = str(val)
-      html += f"<td{sticky_class}>{formatted_val}</td>"
-    html += "</tr>"
+    for row_idx, row in df.iterrows():
+        row_class = "row-even" if row_idx % 2 == 0 else "row-odd"
+        html += f'<tr class="{row_class}">'
+        for col_idx, val in enumerate(row):
+            sticky_class = ' class="col-sticky"' if col_idx == 0 else ""
+            if col_idx == 0:
+                formatted_val = str(val)
+            elif isinstance(val, (int, float)):
+                col_name = str(df.columns[col_idx])
+                if (
+                    "Total" in col_name
+                    or "Día" in col_name
+                    or "Transferido" in col_name
+                ):
+                    formatted_val = f"${val:,.2f}"
+                else:
+                    formatted_val = f"{int(val):,}" if val == int(val) else f"{val:,}"
+            else:
+                formatted_val = str(val)
+            html += f"<td{sticky_class}>{formatted_val}</td>"
+        html += "</tr>"
 
-  html += "</tbody></table></div>"
-  return html
+    html += "</tbody></table></div>"
+    return html
 
 
-st.subheader("Retiros por Año")
-st.html(render_custom_table(tabla_anos))
+# Organización de tablas en pestañas
+tab1, tab2 = st.tabs(["Retiros por Año", "Transferencias Interbancarias"])
 
-st.subheader("Transferencias Interbancarias")
-st.html(render_custom_table(tabla_trans))
+with tab1:
+    st.html(render_custom_table(tabla_anos))
+
+with tab2:
+    st.html(render_custom_table(tabla_trans))
 
 if __name__ == "__main__":
-  if "streamlit" not in sys.argv[0]:
-    os.system(f'streamlit run "{__file__}" --server.port 8501')
+    if "streamlit" not in sys.argv[0]:
+        os.system(f'streamlit run "{__file__}" --server.port 8501')
