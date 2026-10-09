@@ -30,7 +30,7 @@ def obtener_hoja(dict_hojas, nombre_buscado):
 
 todas_las_hojas = cargar_todas_las_hojas(EXCEL_URL)
 
-# 1. Retiros por Año y Total
+# 1. Retiros por Año, Total y Retiro / Día Global
 df_raw_retiros = obtener_hoja(todas_las_hojas, "Retiros")
 df_retiros = df_raw_retiros[["Fecha", "Valor"]].dropna().copy()
 df_retiros["Fecha_dt"] = pd.to_datetime(
@@ -52,6 +52,16 @@ tabla_anos["Año"] = tabla_anos["Año"].astype(str)
 tabla_anos.columns = ["Año", "Nº Retiros", "Total", "Retiro / Día"]
 
 total_kpi_retiros = df_retiros["Valor"].sum()
+min_fecha = df_retiros["Fecha_dt"].min()
+max_fecha = df_retiros["Fecha_dt"].max()
+dias_totales_rango = (
+    (max_fecha - min_fecha).days
+    if pd.notnull(min_fecha) and pd.notnull(max_fecha)
+    else 1
+)
+kpi_retiro_dia_global = total_kpi_retiros / (
+    dias_totales_rango if dias_totales_rango > 0 else 1
+)
 
 # 2. Transferencias Interbancarias
 df_raw_trans = obtener_hoja(todas_las_hojas, "Transferencias Interbancarias")
@@ -122,6 +132,7 @@ if (
   df_compras["Establecimiento"] = df_compras["Descripción"].apply(
       categorizar_descripcion
   )
+
   df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
   df_compras = df_compras.dropna(subset=["Valor"])
 
@@ -146,7 +157,7 @@ else:
   )
   total_kpi_compras = 0.0
 
-# 4. Swift (Extracción de Columna B / Valor)
+# 4. Swift
 df_raw_swift = obtener_hoja(todas_las_hojas, "Swift")
 if not df_raw_swift.empty and "Valor" in df_raw_swift.columns:
   total_kpi_swift = pd.to_numeric(df_raw_swift["Valor"], errors="coerce").sum()
@@ -311,6 +322,11 @@ with col1:
   st.html(
       render_kpi_card(
           "Total Retiros (Todos los Años)", f"${total_kpi_retiros:,.2f}"
+      )
+  )
+  st.html(
+      render_kpi_card(
+          "Retiro / Día (Todos los Años)", f"${kpi_retiro_dia_global:,.2f}"
       )
   )
   st.html(
