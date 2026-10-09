@@ -52,7 +52,7 @@ def render_custom_table(df):
         overflow-x: auto;
         overflow-y: auto;
         padding: 0px;
-        border: 1px solid #CBD5E1;
+        border: 1px solid #000000;
         border-radius: 8px;
         margin-bottom: 20px;
     }
@@ -62,6 +62,7 @@ def render_custom_table(df):
         border-spacing: 0;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-size: 14px;
+        color: #000000 !important;
     }
     .custom-table th {
         position: sticky !important;
@@ -73,7 +74,8 @@ def render_custom_table(df):
         padding: 10px 14px;
         font-weight: 600;
         white-space: nowrap;
-        border-bottom: 2px solid #94A3B8;
+        border-bottom: 2px solid #000000;
+        border-right: 1px solid #CBD5E1;
         width: max-content !important;
     }
     .custom-table th.col-sticky {
@@ -83,7 +85,7 @@ def render_custom_table(df):
         z-index: 50 !important;
         width: 125px !important;
         min-width: 125px !important;
-        box-shadow: 2px 0 5px rgba(0,0,0,0.15);
+        box-shadow: 2px 0 5px rgba(0,0,0,0.2);
     }
     .custom-table td {
         position: static !important;
@@ -91,7 +93,9 @@ def render_custom_table(df):
         text-align: center !important;
         padding: 10px 14px;
         white-space: nowrap;
-        border-bottom: 1px solid #E2E8F0;
+        color: #000000 !important;
+        border-bottom: 1px solid #CBD5E1;
+        border-right: 1px solid #E2E8F0;
         width: max-content !important;
     }
     .custom-table td.col-sticky {
@@ -103,12 +107,13 @@ def render_custom_table(df):
         background-color: #F1F5F9 !important;
         background-clip: padding-box !important;
         font-weight: bold;
-        box-shadow: 2px 0 5px rgba(0,0,0,0.15);
+        color: #000000 !important;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.2);
         word-wrap: break-word;
         white-space: normal;
     }
-    .row-even { background-color: #FFFFFF !important; }
-    .row-odd { background-color: #F8FAFC !important; }
+    .row-even td { background-color: #FFFFFF !important; }
+    .row-odd td { background-color: #F8FAFC !important; }
     </style>
     """
 
