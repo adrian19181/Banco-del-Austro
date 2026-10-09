@@ -14,16 +14,25 @@ EXCEL_URL = "https://docs.google.com/spreadsheets/d/19aw00haXlThBf0AlHwMsYNabeFG
 
 
 @st.cache_data(ttl=60)
-def cargar_hoja(url, nombre_buscado):
-    xl = pd.ExcelFile(url)
-    for sheet in xl.sheet_names:
-        if sheet.strip().lower() == nombre_buscado.strip().lower():
-            return pd.read_excel(xl, sheet_name=sheet)
-    return pd.read_excel(url, sheet_name=nombre_buscado)
+def cargar_todas_las_hojas(url):
+    return pd.read_excel(url, sheet_name=None)
 
 
-# Carga de Retiros
-df_raw_retiros = cargar_hoja(EXCEL_URL, "Retiros")
+def obtener_hoja(dict_hojas, nombre_buscado):
+    for key in dict_hojas.keys():
+        if key.strip().lower() == nombre_buscado.strip().lower():
+            return dict_hojas[key]
+    for key in dict_hojas.keys():
+        if nombre_buscado.strip().lower() in key.strip().lower():
+            return dict_hojas[key]
+    return pd.DataFrame()
+
+
+# Carga global de datos
+todas_las_hojas = cargar_todas_las_hojas(EXCEL_URL)
+
+# 1. Carga de Retiros
+df_raw_retiros = obtener_hoja(todas_las_hojas, "Retiros")
 df_retiros = df_raw_retiros[["Fecha", "Valor"]].dropna().copy()
 df_retiros["Fecha_dt"] = pd.to_datetime(
     df_retiros["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
@@ -43,8 +52,8 @@ tabla_anos["Retiro_Dia"] = tabla_anos["Total_USD"] / 365
 tabla_anos["Año"] = tabla_anos["Año"].astype(str)
 tabla_anos.columns = ["Año", "Nº Retiros", "Total", "Retiro / Día"]
 
-# Carga de Transferencias Interbancarias
-df_raw_trans = cargar_hoja(EXCEL_URL, "Transferencias Interbancarias")
+# 2. Carga de Transferencias Interbancarias
+df_raw_trans = obtener_hoja(todas_las_hojas, "Transferencias Interbancarias")
 df_trans = df_raw_trans[["Institución", "Valor"]].dropna().copy()
 
 # Unificar variantes de Jardín Azuayo
@@ -70,48 +79,71 @@ tabla_trans.columns = [
     "Total Transferido",
 ]
 
-# Carga de Compras por Internet
-df_raw_compras = cargar_hoja(EXCEL_URL, "Compras por Internet")
+# 3. Carga de Compras por Internet
+df_raw_compras = obtener_hoja(todas_las_hojas, "Compras por internet")
 
-# Extracción directa: Columna H (índice 7 = Establecimiento) y Columna F (índice 5 = Valor)
-col_est_idx = 7 if df_raw_compras.shape[1] > 7 else 0
-col_val_idx = 5 if df_raw_compras.shape[1] > 5 else 1
+if not df_raw_compras.empty:
+    # Ubicar columna de Establecimiento (Columna H / Descripción Resumida)
+    col_est = None
+    for c in df_raw_compras.columns:
+        if "Descripción Resumida" in str(c) or "Establecimiento" in str(c):
+            col_est = c
+            break
+    if col_est is None:
+        col_est = df_raw_compras.columns[
+            min(7, len(df_raw_compras.columns) - 1)
+        ]
 
-df_compras = df_raw_compras.iloc[:, [col_est_idx, col_val_idx]].copy()
-df_compras.columns = ["Establecimiento", "Valor"]
+    # Ubicar columna de Valor (Columna F / Valor Total)
+    val_cols = [c for c in df_raw_compras.columns if "Valor" in str(c)]
+    if len(val_cols) >= 2:
+        col_val = val_cols[1]
+    elif len(val_cols) == 1:
+        col_val = val_cols[0]
+    else:
+        col_val = df_raw_compras.columns[
+            min(5, len(df_raw_compras.columns) - 1)
+        ]
 
-# Limpieza y conversión
-df_compras["Valor"] = (
-    df_compras["Valor"]
-    .astype(str)
-    .str.replace("$", "", regex=False)
-    .str.replace(",", "", regex=False)
-    .str.strip()
-)
-df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
-df_compras["Establecimiento"] = (
-    df_compras["Establecimiento"].astype(str).str.strip()
-)
+    df_compras = df_raw_compras[[col_est, col_val]].copy()
+    df_compras.columns = ["Establecimiento", "Valor"]
 
-df_compras = df_compras.dropna(subset=["Valor"])
-df_compras = df_compras[
-    ~df_compras["Establecimiento"].isin(["nan", "None", "", "NaN"])
-]
-
-tabla_compras = (
-    df_compras.groupby("Establecimiento")["Valor"]
-    .agg(
-        N_Compras="count",
-        Total_USD="sum",
+    # Limpieza de datos
+    df_compras["Establecimiento"] = (
+        df_compras["Establecimiento"].astype(str).str.strip()
     )
-    .reset_index()
-    .sort_values("Total_USD", ascending=False)
-)
-tabla_compras.columns = [
-    "Establecimiento",
-    "Nº Compras",
-    "Total Comprado",
-]
+    df_compras["Valor"] = (
+        df_compras["Valor"]
+        .astype(str)
+        .str.replace("$", "", regex=False)
+        .str.replace(",", "", regex=False)
+        .str.strip()
+    )
+    df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
+
+    df_compras = df_compras.dropna(subset=["Valor"])
+    df_compras = df_compras[
+        ~df_compras["Establecimiento"].isin(["nan", "None", "", "NaN"])
+    ]
+
+    tabla_compras = (
+        df_compras.groupby("Establecimiento", as_index=False)["Valor"]
+        .agg(
+            N_Compras="count",
+            Total_USD="sum",
+        )
+        .sort_values("Total_USD", ascending=False)
+        .reset_index(drop=True)
+    )
+    tabla_compras.columns = [
+        "Establecimiento",
+        "Nº Compras",
+        "Total Comprado",
+    ]
+else:
+    tabla_compras = pd.DataFrame(
+        columns=["Establecimiento", "Nº Compras", "Total Comprado"]
+    )
 
 
 def render_custom_table(df):
@@ -180,7 +212,6 @@ def render_custom_table(df):
         z-index: 30 !important;
         width: max-content !important;
         white-space: nowrap !important;
-        background-color: #FFEB3B !important;
         background-clip: padding-box !important;
         font-weight: bold;
         color: #000000 !important;
