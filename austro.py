@@ -52,9 +52,10 @@ def render_custom_table(df):
         overflow-x: auto;
         overflow-y: auto;
         padding: 0px;
-        border: 1px solid #000000;
+        border: 2px solid #000000;
         border-radius: 8px;
         margin-bottom: 20px;
+        background-color: #FFFFFF;
     }
     .custom-table {
         width: max-content;
@@ -68,14 +69,14 @@ def render_custom_table(df):
         position: sticky !important;
         top: 0 !important;
         z-index: 20 !important;
-        background-color: #0F172A !important;
-        color: #FFFFFF !important;
+        background-color: #FFEB3B !important;
+        color: #000000 !important;
         text-align: center !important;
         padding: 10px 14px;
-        font-weight: 600;
+        font-weight: bold;
         white-space: nowrap;
-        border-bottom: 2px solid #000000;
-        border-right: 1px solid #CBD5E1;
+        border-bottom: 1px solid #000000;
+        border-right: 1px solid #000000;
         width: max-content !important;
     }
     .custom-table th.col-sticky {
@@ -85,6 +86,8 @@ def render_custom_table(df):
         z-index: 50 !important;
         width: 125px !important;
         min-width: 125px !important;
+        background-color: #FFEB3B !important;
+        color: #000000 !important;
         box-shadow: 2px 0 5px rgba(0,0,0,0.2);
     }
     .custom-table td {
@@ -94,8 +97,9 @@ def render_custom_table(df):
         padding: 10px 14px;
         white-space: nowrap;
         color: #000000 !important;
-        border-bottom: 1px solid #CBD5E1;
-        border-right: 1px solid #E2E8F0;
+        font-weight: 600;
+        border-bottom: 1px solid #000000;
+        border-right: 1px solid #000000;
         width: max-content !important;
     }
     .custom-table td.col-sticky {
@@ -104,7 +108,8 @@ def render_custom_table(df):
         z-index: 30 !important;
         width: 125px !important;
         min-width: 125px !important;
-        background-color: #F1F5F9 !important;
+        background-color: #FF172A !important;
+        background-color: #FFEB3B !important;
         background-clip: padding-box !important;
         font-weight: bold;
         color: #000000 !important;
@@ -112,8 +117,8 @@ def render_custom_table(df):
         word-wrap: break-word;
         white-space: normal;
     }
-    .row-even td { background-color: #FFFFFF !important; }
-    .row-odd td { background-color: #F8FAFC !important; }
+    .row-even td { background-color: #E8F5E9 !important; }
+    .row-odd td { background-color: #FFFDE7 !important; }
     </style>
     """
 
