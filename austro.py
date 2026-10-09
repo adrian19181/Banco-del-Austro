@@ -66,6 +66,28 @@ tabla_trans.columns = [
     "Total Transferido",
 ]
 
+# Carga de Compras por Internet
+df_raw_compras = cargar_datos(EXCEL_URL, "Compras por internet")
+# Columna H (índice 7) -> Establecimiento / Descripción Resumida
+# Columna F (índice 5) -> Valor Total
+df_compras = df_raw_compras.iloc[:, [7, 5]].dropna().copy()
+df_compras.columns = ["Establecimiento", "Valor"]
+
+tabla_compras = (
+    df_compras.groupby("Establecimiento")["Valor"]
+    .agg(
+        N_Compras="count",
+        Total_USD="sum",
+    )
+    .reset_index()
+    .sort_values("Total_USD", ascending=False)
+)
+tabla_compras.columns = [
+    "Establecimiento",
+    "Nº Compras",
+    "Total Comprado",
+]
+
 
 def render_custom_table(df):
     css = """
@@ -169,6 +191,7 @@ def render_custom_table(df):
                     "Total" in col_name
                     or "Día" in col_name
                     or "Transferido" in col_name
+                    or "Comprado" in col_name
                 ):
                     formatted_val = f"${val:,.2f}"
                 else:
@@ -183,13 +206,18 @@ def render_custom_table(df):
 
 
 # Organización de tablas en pestañas
-tab1, tab2 = st.tabs(["Retiros por Año", "Transferencias Interbancarias"])
+tab1, tab2, tab3 = st.tabs(
+    ["Retiros por Año", "Transferencias Interbancarias", "Compras por Internet"]
+)
 
 with tab1:
     st.html(render_custom_table(tabla_anos))
 
 with tab2:
     st.html(render_custom_table(tabla_trans))
+
+with tab3:
+    st.html(render_custom_table(tabla_compras))
 
 if __name__ == "__main__":
     if "streamlit" not in sys.argv[0]:
