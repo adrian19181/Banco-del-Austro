@@ -84,8 +84,8 @@ def render_custom_table(df):
         left: 0 !important;
         top: 0 !important;
         z-index: 50 !important;
-        width: 125px !important;
-        min-width: 125px !important;
+        width: max-content !important;
+        white-space: nowrap !important;
         background-color: #FFEB3B !important;
         color: #000000 !important;
         box-shadow: 2px 0 5px rgba(0,0,0,0.2);
@@ -106,16 +106,13 @@ def render_custom_table(df):
         position: sticky !important;
         left: 0 !important;
         z-index: 30 !important;
-        width: 125px !important;
-        min-width: 125px !important;
-        background-color: #FF172A !important;
+        width: max-content !important;
+        white-space: nowrap !important;
         background-color: #FFEB3B !important;
         background-clip: padding-box !important;
         font-weight: bold;
         color: #000000 !important;
         box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-        word-wrap: break-word;
-        white-space: normal;
     }
     .row-even td { background-color: #E8F5E9 !important; }
     .row-odd td { background-color: #FFFDE7 !important; }
