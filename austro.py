@@ -76,50 +76,31 @@ tabla_trans.columns = [
     "Total Transferido",
 ]
 
-# 3. Compras por Internet (Categorización directa en Python desde Columna C)
+# 3. Compras por Internet (Lectura de Columna H para Tienda y Columna B para Valor)
 df_raw_compras = obtener_hoja(todas_las_hojas, "Compras por internet")
 
+if not df_raw_compras.empty and "Valor" in df_raw_compras.columns:
+  col_est = (
+      "Descripción Resumida"
+      if "Descripción Resumida" in df_raw_compras.columns
+      else df_raw_compras.columns[7]
+  )
+  df_compras = df_raw_compras[[col_est, "Valor"]].dropna().copy()
+  df_compras.columns = ["Establecimiento", "Valor"]
 
-def categorizar_descripcion(desc):
-  desc_str = str(desc).upper()
-  if "AMAZON" in desc_str or "AMZN" in desc_str:
-    return "Amazon"
-  elif "ALIEXPRESS" in desc_str or "ALIPAY" in desc_str:
-    return "Aliexpress"
-  elif "SHEIN" in desc_str:
-    return "Shein"
-  elif "EBAY" in desc_str:
-    return "eBay"
-  elif "TEMU" in desc_str:
-    return "Temu"
-  elif any(
-      k in desc_str
-      for k in [
-          "TRANSEXPRES",
-          "LAARBOX",
-          "FLETE",
-          "EXPRESSWEB",
-          "TRANS EXPRESS",
-      ]
-  ):
-    return "Flete Laarbox"
-  elif "FARMASOL" in desc_str:
-    return "FARMASOL LOS NOGALES CUENCA EC"
-  else:
-    return desc_str.strip()
-
-
-if (
-    not df_raw_compras.empty
-    and "Descripción" in df_raw_compras.columns
-    and "Valor" in df_raw_compras.columns
-):
-  df_compras = df_raw_compras[["Descripción", "Valor"]].dropna().copy()
-  df_compras["Establecimiento"] = df_compras["Descripción"].apply(
-      categorizar_descripcion
+  df_compras["Establecimiento"] = (
+      df_compras["Establecimiento"].astype(str).str.strip()
+  )
+  df_compras["Establecimiento"] = df_compras["Establecimiento"].replace(
+      {"FARMASOL LOS NOGALES CUENCA EC": "Farmasol"}
   )
   df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
   df_compras = df_compras.dropna(subset=["Valor"])
+  df_compras = df_compras[
+      ~df_compras["Establecimiento"].isin(
+          ["nan", "None", "", "NaN", "#NAME?"]
+      )
+  ]
 
   tabla_compras = (
       df_compras.groupby("Establecimiento", as_index=False)["Valor"]
@@ -207,8 +188,6 @@ def render_custom_table(df):
         z-index: 30 !important;
         width: max-content !important;
         white-space: nowrap !important;
-        background-color: #FFEB3B !important;
-        background-clip: padding-box !important;
         font-weight: bold;
         color: #000000 !important;
         box-shadow: 2px 0 5px rgba(0,0,0,0.2);
