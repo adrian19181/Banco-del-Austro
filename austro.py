@@ -68,10 +68,45 @@ tabla_trans.columns = [
 
 # Carga de Compras por Internet
 df_raw_compras = cargar_datos(EXCEL_URL, "Compras por internet")
-# Columna H (índice 7) -> Establecimiento / Descripción Resumida
-# Columna F (índice 5) -> Valor Total
-df_compras = df_raw_compras.iloc[:, [7, 5]].dropna().copy()
+
+# Detección dinámica de Columna H (Establecimiento)
+col_est = None
+for col in df_raw_compras.columns:
+    if "Descripción Resumida" in str(col) or "Establecimiento" in str(col):
+        col_est = col
+        break
+if col_est is None:
+    col_est = df_raw_compras.columns[min(7, len(df_raw_compras.columns) - 1)]
+
+# Detección dinámica de Columna F (Valor Total)
+valor_cols = [c for c in df_raw_compras.columns if "Valor" in str(c)]
+if len(valor_cols) >= 2:
+    col_val = valor_cols[1]
+elif len(valor_cols) == 1:
+    col_val = valor_cols[0]
+else:
+    col_val = df_raw_compras.columns[min(5, len(df_raw_compras.columns) - 1)]
+
+df_compras = df_raw_compras[[col_est, col_val]].copy()
 df_compras.columns = ["Establecimiento", "Valor"]
+
+# Limpieza y conversión a valores numéricos
+df_compras["Valor"] = (
+    df_compras["Valor"]
+    .astype(str)
+    .str.replace("$", "", regex=False)
+    .str.replace(",", "", regex=False)
+    .str.strip()
+)
+df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
+df_compras["Establecimiento"] = (
+    df_compras["Establecimiento"].astype(str).str.strip()
+)
+
+df_compras = df_compras.dropna(subset=["Valor"])
+df_compras = df_compras[
+    ~df_compras["Establecimiento"].isin(["nan", "None", "", "NaN"])
+]
 
 tabla_compras = (
     df_compras.groupby("Establecimiento")["Valor"]
