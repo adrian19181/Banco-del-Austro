@@ -6,27 +6,24 @@ import streamlit as st
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 if st.button("🔄 Actualizar Datos", use_container_width=True):
-  st.rerun()
+    st.rerun()
 
 st.title("Banco del Austro")
 
 EXCEL_URL = "https://docs.google.com/spreadsheets/d/19aw00haXlThBf0AlHwMsYNabeFGAbbjw/export?format=xlsx"
 
-
 @st.cache_data(ttl=60)
 def cargar_todas_las_hojas(url):
-  return pd.read_excel(url, sheet_name=None)
-
+    return pd.read_excel(url, sheet_name=None)
 
 def obtener_hoja(dict_hojas, nombre_buscado):
-  for key in dict_hojas.keys():
-    if key.strip().lower() == nombre_buscado.strip().lower():
-      return dict_hojas[key]
-  for key in dict_hojas.keys():
-    if nombre_buscado.strip().lower() in key.strip().lower():
-      return dict_hojas[key]
-  return pd.DataFrame()
-
+    for key in dict_hojas.keys():
+        if key.strip().lower() == nombre_buscado.strip().lower():
+            return dict_hojas[key]
+    for key in dict_hojas.keys():
+        if nombre_buscado.strip().lower() in key.strip().lower():
+            return dict_hojas[key]
+    return pd.DataFrame()
 
 todas_las_hojas = cargar_todas_las_hojas(EXCEL_URL)
 
@@ -76,54 +73,56 @@ tabla_trans.columns = [
     "Total Transferido",
 ]
 
-# 3. Compras por Internet (Lectura de Columna H para Tienda y Columna B para Valor)
+# 3. Compras por Internet (Extracción directa Columna C y Columna B)
 df_raw_compras = obtener_hoja(todas_las_hojas, "Compras por internet")
 
-if not df_raw_compras.empty and "Valor" in df_raw_compras.columns:
-  col_est = (
-      "Descripción Resumida"
-      if "Descripción Resumida" in df_raw_compras.columns
-      else df_raw_compras.columns[7]
-  )
-  df_compras = df_raw_compras[[col_est, "Valor"]].dropna().copy()
-  df_compras.columns = ["Establecimiento", "Valor"]
+def categorizar_descripcion(desc):
+    desc_str = str(desc).upper()
+    if "AMAZON" in desc_str or "AMZN" in desc_str:
+        return "Amazon"
+    elif "ALIEXPRESS" in desc_str or "ALIPAY" in desc_str:
+        return "Aliexpress"
+    elif "SHEIN" in desc_str:
+        return "Shein"
+    elif "EBAY" in desc_str:
+        return "eBay"
+    elif "TEMU" in desc_str:
+        return "Temu"
+    elif any(k in desc_str for k in ["TRANSEXPRES", "LAARBOX", "FLETE", "EXPRESSWEB", "TRANS EXPRESS"]):
+        return "Flete Laarbox"
+    elif "FARMASOL" in desc_str:
+        return "Farmasol"
+    else:
+        return desc_str.strip()
 
-  df_compras["Establecimiento"] = (
-      df_compras["Establecimiento"].astype(str).str.strip()
-  )
-  df_compras["Establecimiento"] = df_compras["Establecimiento"].replace(
-      {"FARMASOL LOS NOGALES CUENCA EC": "Farmasol"}
-  )
-  df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
-  df_compras = df_compras.dropna(subset=["Valor"])
-  df_compras = df_compras[
-      ~df_compras["Establecimiento"].isin(
-          ["nan", "None", "", "NaN", "#NAME?"]
-      )
-  ]
+if not df_raw_compras.empty and "Descripción" in df_raw_compras.columns and "Valor" in df_raw_compras.columns:
+    df_compras = df_raw_compras[["Descripción", "Valor"]].dropna().copy()
+    df_compras["Establecimiento"] = df_compras["Descripción"].apply(categorizar_descripcion)
+    
+    df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
+    df_compras = df_compras.dropna(subset=["Valor"])
 
-  tabla_compras = (
-      df_compras.groupby("Establecimiento", as_index=False)["Valor"]
-      .agg(
-          N_Compras="count",
-          Total_USD="sum",
-      )
-      .sort_values("Total_USD", ascending=False)
-      .reset_index(drop=True)
-  )
-  tabla_compras.columns = [
-      "Establecimiento",
-      "Nº Compras",
-      "Total Comprado",
-  ]
+    tabla_compras = (
+        df_compras.groupby("Establecimiento", as_index=False)["Valor"]
+        .agg(
+            N_Compras="count",
+            Total_USD="sum",
+        )
+        .sort_values("Total_USD", ascending=False)
+        .reset_index(drop=True)
+    )
+    tabla_compras.columns = [
+        "Establecimiento",
+        "Nº Compras",
+        "Total Comprado",
+    ]
 else:
-  tabla_compras = pd.DataFrame(
-      columns=["Establecimiento", "Nº Compras", "Total Comprado"]
-  )
-
+    tabla_compras = pd.DataFrame(
+        columns=["Establecimiento", "Nº Compras", "Total Comprado"]
+    )
 
 def render_custom_table(df):
-  css = """
+    css = """
     <style>
     .table-container {
         max-height: 420px;
@@ -188,67 +187,68 @@ def render_custom_table(df):
         z-index: 30 !important;
         width: max-content !important;
         white-space: nowrap !important;
+        background-color: #FFEB3B !important;
+        background-clip: padding-box !important;
         font-weight: bold;
         color: #000000 !important;
         box-shadow: 2px 0 5px rgba(0,0,0,0.2);
     }
-    .row-even td { background-color: #E8F5E9 !important; }
-    .row-odd td { background-color: #FFFDE7 !important; }
+    .row-even td:not(.col-sticky) { background-color: #E8F5E9 !important; }
+    .row-odd td:not(.col-sticky) { background-color: #FFFDE7 !important; }
     </style>
     """
 
-  html = css + '<div class="table-container"><table class="custom-table"><thead><tr>'
+    html = css + '<div class="table-container"><table class="custom-table"><thead><tr>'
 
-  for idx, col in enumerate(df.columns):
-    sticky_class = ' class="col-sticky"' if idx == 0 else ""
-    clean_col = str(col).replace(" ($)", "").replace("$", "")
-    header_text = (
-        clean_col.replace(" ", "<br>") if len(clean_col) > 10 else clean_col
-    )
-    html += f"<th{sticky_class}>{header_text}</th>"
+    for idx, col in enumerate(df.columns):
+        sticky_class = ' class="col-sticky"' if idx == 0 else ""
+        clean_col = str(col).replace(" ($)", "").replace("$", "")
+        header_text = (
+            clean_col.replace(" ", "<br>") if len(clean_col) > 10 else clean_col
+        )
+        html += f"<th{sticky_class}>{header_text}</th>"
 
-  html += "</tr></thead><tbody>"
+    html += "</tr></thead><tbody>"
 
-  for row_idx, row in df.iterrows():
-    row_class = "row-even" if row_idx % 2 == 0 else "row-odd"
-    html += f'<tr class="{row_class}">'
-    for col_idx, val in enumerate(row):
-      sticky_class = ' class="col-sticky"' if col_idx == 0 else ""
-      if col_idx == 0:
-        formatted_val = str(val)
-      elif isinstance(val, (int, float)):
-        col_name = str(df.columns[col_idx])
-        if (
-            "Total" in col_name
-            or "Día" in col_name
-            or "Transferido" in col_name
-            or "Comprado" in col_name
-        ):
-          formatted_val = f"${val:,.2f}"
-        else:
-          formatted_val = f"{int(val):,}" if val == int(val) else f"{val:,}"
-      else:
-        formatted_val = str(val)
-      html += f"<td{sticky_class}>{formatted_val}</td>"
-    html += "</tr>"
+    for row_idx, row in df.iterrows():
+        row_class = "row-even" if row_idx % 2 == 0 else "row-odd"
+        html += f'<tr class="{row_class}">'
+        for col_idx, val in enumerate(row):
+            sticky_class = ' class="col-sticky"' if col_idx == 0 else ""
+            if col_idx == 0:
+                formatted_val = str(val)
+            elif isinstance(val, (int, float)):
+                col_name = str(df.columns[col_idx])
+                if (
+                    "Total" in col_name
+                    or "Día" in col_name
+                    or "Transferido" in col_name
+                    or "Comprado" in col_name
+                ):
+                    formatted_val = f"${val:,.2f}"
+                else:
+                    formatted_val = f"{int(val):,}" if val == int(val) else f"{val:,}"
+            else:
+                formatted_val = str(val)
+            html += f"<td{sticky_class}>{formatted_val}</td>"
+        html += "</tr>"
 
-  html += "</tbody></table></div>"
-  return html
-
+    html += "</tbody></table></div>"
+    return html
 
 tab1, tab2, tab3 = st.tabs(
     ["Retiros por Año", "Transferencias Interbancarias", "Compras por Internet"]
 )
 
 with tab1:
-  st.html(render_custom_table(tabla_anos))
+    st.html(render_custom_table(tabla_anos))
 
 with tab2:
-  st.html(render_custom_table(tabla_trans))
+    st.html(render_custom_table(tabla_trans))
 
 with tab3:
-  st.html(render_custom_table(tabla_compras))
+    st.html(render_custom_table(tabla_compras))
 
 if __name__ == "__main__":
-  if "streamlit" not in sys.argv[0]:
-    os.system(f'streamlit run "{__file__}" --server.port 8501')
+    if "streamlit" not in sys.argv[0]:
+        os.system(f'streamlit run "{__file__}" --server.port 8501')
