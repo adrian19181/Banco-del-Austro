@@ -14,12 +14,16 @@ EXCEL_URL = "https://docs.google.com/spreadsheets/d/19aw00haXlThBf0AlHwMsYNabeFG
 
 
 @st.cache_data(ttl=60)
-def cargar_datos(url, hoja):
-    return pd.read_excel(url, sheet_name=hoja)
+def cargar_hoja(url, nombre_buscado):
+    xl = pd.ExcelFile(url)
+    for sheet in xl.sheet_names:
+        if sheet.strip().lower() == nombre_buscado.strip().lower():
+            return pd.read_excel(xl, sheet_name=sheet)
+    return pd.read_excel(url, sheet_name=nombre_buscado)
 
 
 # Carga de Retiros
-df_raw_retiros = cargar_datos(EXCEL_URL, "Retiros")
+df_raw_retiros = cargar_hoja(EXCEL_URL, "Retiros")
 df_retiros = df_raw_retiros[["Fecha", "Valor"]].dropna().copy()
 df_retiros["Fecha_dt"] = pd.to_datetime(
     df_retiros["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
@@ -40,7 +44,7 @@ tabla_anos["Año"] = tabla_anos["Año"].astype(str)
 tabla_anos.columns = ["Año", "Nº Retiros", "Total", "Retiro / Día"]
 
 # Carga de Transferencias Interbancarias
-df_raw_trans = cargar_datos(EXCEL_URL, "Transferencias Interbancarias")
+df_raw_trans = cargar_hoja(EXCEL_URL, "Transferencias Interbancarias")
 df_trans = df_raw_trans[["Institución", "Valor"]].dropna().copy()
 
 # Unificar variantes de Jardín Azuayo
@@ -67,30 +71,16 @@ tabla_trans.columns = [
 ]
 
 # Carga de Compras por Internet
-df_raw_compras = cargar_datos(EXCEL_URL, "Compras por internet")
+df_raw_compras = cargar_hoja(EXCEL_URL, "Compras por Internet")
 
-# Detección dinámica de Columna H (Establecimiento)
-col_est = None
-for col in df_raw_compras.columns:
-    if "Descripción Resumida" in str(col) or "Establecimiento" in str(col):
-        col_est = col
-        break
-if col_est is None:
-    col_est = df_raw_compras.columns[min(7, len(df_raw_compras.columns) - 1)]
+# Extracción directa: Columna H (índice 7 = Establecimiento) y Columna F (índice 5 = Valor)
+col_est_idx = 7 if df_raw_compras.shape[1] > 7 else 0
+col_val_idx = 5 if df_raw_compras.shape[1] > 5 else 1
 
-# Detección dinámica de Columna F (Valor Total)
-valor_cols = [c for c in df_raw_compras.columns if "Valor" in str(c)]
-if len(valor_cols) >= 2:
-    col_val = valor_cols[1]
-elif len(valor_cols) == 1:
-    col_val = valor_cols[0]
-else:
-    col_val = df_raw_compras.columns[min(5, len(df_raw_compras.columns) - 1)]
-
-df_compras = df_raw_compras[[col_est, col_val]].copy()
+df_compras = df_raw_compras.iloc[:, [col_est_idx, col_val_idx]].copy()
 df_compras.columns = ["Establecimiento", "Valor"]
 
-# Limpieza y conversión a valores numéricos
+# Limpieza y conversión
 df_compras["Valor"] = (
     df_compras["Valor"]
     .astype(str)
