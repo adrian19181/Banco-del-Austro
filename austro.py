@@ -14,13 +14,13 @@ EXCEL_URL = "https://docs.google.com/spreadsheets/d/19aw00haXlThBf0AlHwMsYNabeFG
 
 
 @st.cache_data(ttl=60)
-def cargar_datos(url):
-  return pd.read_excel(url, sheet_name="Retiros")
+def cargar_datos(url, hoja):
+  return pd.read_excel(url, sheet_name=hoja)
 
 
-df_raw = cargar_datos(EXCEL_URL)
-
-df_retiros = df_raw[["Fecha", "Valor"]].dropna().copy()
+# Carga de Retiros
+df_raw_retiros = cargar_datos(EXCEL_URL, "Retiros")
+df_retiros = df_raw_retiros[["Fecha", "Valor"]].dropna().copy()
 df_retiros["Fecha_dt"] = pd.to_datetime(
     df_retiros["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
 )
@@ -35,11 +35,36 @@ tabla_anos = (
     )
     .reset_index()
 )
-
 tabla_anos["Retiro_Dia"] = tabla_anos["Total_USD"] / 365
 tabla_anos["Año"] = tabla_anos["Año"].astype(str)
-
 tabla_anos.columns = ["Año", "Nº Retiros", "Total", "Retiro / Día"]
+
+# Carga de Transferencias Interbancarias
+df_raw_trans = cargar_datos(EXCEL_URL, "Transferencias Interbancarias")
+df_trans = df_raw_trans[["Institución", "Valor"]].dropna().copy()
+
+# Unificar variantes de Jardín Azuayo
+df_trans.loc[
+    df_trans["Institución"].str.contains(
+        "JARDIN AZUAYO|Jardín Azuayo", case=False, na=False
+    ),
+    "Institución",
+] = "Jardin Azuayo"
+
+tabla_trans = (
+    df_trans.groupby("Institución")["Valor"]
+    .agg(
+        N_Trans="count",
+        Total_USD="sum",
+    )
+    .reset_index()
+    .sort_values("Total_USD", ascending=False)
+)
+tabla_trans.columns = [
+    "Entidad Financiera",
+    "Nº Transferencias",
+    "Total Transferido",
+]
 
 
 def render_custom_table(df):
@@ -140,7 +165,11 @@ def render_custom_table(df):
         formatted_val = str(val)
       elif isinstance(val, (int, float)):
         col_name = str(df.columns[col_idx])
-        if "Total" in col_name or "Día" in col_name:
+        if (
+            "Total" in col_name
+            or "Día" in col_name
+            or "Transferido" in col_name
+        ):
           formatted_val = f"${val:,.2f}"
         else:
           formatted_val = f"{int(val):,}" if val == int(val) else f"{val:,}"
@@ -155,6 +184,9 @@ def render_custom_table(df):
 
 st.subheader("Retiros por Año")
 st.html(render_custom_table(tabla_anos))
+
+st.subheader("Transferencias Interbancarias")
+st.html(render_custom_table(tabla_trans))
 
 if __name__ == "__main__":
   if "streamlit" not in sys.argv[0]:
