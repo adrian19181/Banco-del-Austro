@@ -310,7 +310,7 @@ def render_kpi_card(titulo, valor_str):
         margin-bottom: 12px;
         box-shadow: 0px 4px 6px rgba(0,0,0,0.3);
     ">
-        <div style="color: #94A3B8; font-size: 13px; font-weight: 600; margin-bottom: 4px;">{titulo}</div>
+        <div style="color: #FFEB3B; font-size: 13px; font-weight: 600; margin-bottom: 4px;">{titulo}</div>
         <div style="color: #FFFFFF; font-size: 20px; font-weight: bold;">{valor_str}</div>
     </div>
     """
