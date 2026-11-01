@@ -537,39 +537,8 @@ elif banco_seleccionado == "Jardín Azuayo":
     else:
         tabla_anos_j = pd.DataFrame(columns=["Año", "Nº Retiros", "Total", "Retiro / Día"])
 
-    # 2. Transferencias Interbancarias Jardín Azuayo
+    # 2. Transferencias Interbancarias Jardín Azuayo (Agrupado por Año según Columnas A y B)
     df_raw_trans_j = obtener_hoja(hojas_jardin, "Transferencias Interbancarias")
-    df_trans_clean_j = pd.DataFrame()
-    if (
-        not df_raw_trans_j.empty
-        and "Institución" in df_raw_trans_j.columns
-        and "Valor" in df_raw_trans_j.columns
-    ):
-        df_trans_clean_j = df_raw_trans_j[["Institución", "Valor"]].dropna().copy()
-        tabla_trans_j = (
-            df_trans_clean_j.groupby("Institución")["Valor"]
-            .agg(
-                N_Trans="count",
-                Total_USD="sum",
-            )
-            .reset_index()
-            .sort_values("Total_USD", ascending=False)
-        )
-        tabla_trans_j.columns = [
-            "Entidad Financiera",
-            "Nº Transferencias",
-            "Total Transferido",
-        ]
-    else:
-        tabla_trans_j = pd.DataFrame(
-            columns=["Entidad Financiera", "Nº Transferencias", "Total Transferido"]
-        )
-
-    if not tabla_trans_j.empty:
-        tabla_trans_j["Entidad Financiera"] = tabla_trans_j["Entidad Financiera"].apply(
-            dos_lineas_banco
-        )
-
     df_trans_fechas_j = pd.DataFrame()
     if (
         not df_raw_trans_j.empty
@@ -584,13 +553,32 @@ elif banco_seleccionado == "Jardín Azuayo":
             "Fecha_dt"
         )
         df_trans_fechas_j["Año"] = df_trans_fechas_j["Fecha_dt"].dt.year
+
         if not df_trans_fechas_j.empty:
             ultima_trans_j = df_trans_fechas_j.iloc[-1]
             txt_ultima_trans_j = f"{ultima_trans_j['Fecha_dt'].strftime('%d/%m/%Y')} — ${ultima_trans_j['Valor']:,.2f}"
         else:
             txt_ultima_trans_j = "N/A"
+
+        tabla_trans_j_anos = (
+            df_trans_fechas_j.groupby("Año")["Valor"]
+            .agg(
+                N_Trans="count",
+                Total_USD="sum",
+            )
+            .reset_index()
+        )
+        tabla_trans_j_anos["Año"] = tabla_trans_j_anos["Año"].astype(str)
+        tabla_trans_j_anos.columns = [
+            "Año",
+            "Nº Transferencias",
+            "Total Transferido",
+        ]
     else:
         txt_ultima_trans_j = "N/A"
+        tabla_trans_j_anos = pd.DataFrame(
+            columns=["Año", "Nº Transferencias", "Total Transferido"]
+        )
 
     anos_set_jardin = set()
     for df_temp in [df_retiros_j, df_trans_fechas_j]:
@@ -608,7 +596,7 @@ elif banco_seleccionado == "Jardín Azuayo":
         st.html(render_kpi_card("Último Retiro (Fecha y Valor)", txt_ultimo_retiro_j))
 
     with subtab_j2:
-        st.html(render_custom_table(tabla_trans_j))
+        st.html(render_custom_table(tabla_trans_j_anos))
         st.html(render_kpi_card("Última Transferencia (Fecha y Valor)", txt_ultima_trans_j))
 
     st.markdown("---")
