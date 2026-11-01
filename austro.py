@@ -8,7 +8,10 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 if st.button("🔄 Actualizar Datos", use_container_width=True):
     st.rerun()
 
-st.title("Movimientos Bancos (Austro, Jardín Azuayo)")
+# Título principal con fuente ajustada y tamaño responsive
+st.html(
+    '<h2 style="font-size: 22px; font-weight: bold; margin-top: 10px; margin-bottom: 15px; color: #FFFFFF;">Movimientos: Austro y Jardín.</h2>'
+)
 
 EXCEL_URL_AUSTRO = "https://docs.google.com/spreadsheets/d/19aw00haXlThBf0AlHwMsYNabeFGAbbjw/export?format=xlsx"
 EXCEL_URL_JARDIN = "https://docs.google.com/spreadsheets/d/1RLGdS04je773Qi0U2Z02A49VMrgF5ViH/export?format=xlsx"
@@ -36,15 +39,18 @@ def obtener_hoja(dict_hojas, nombre_buscado):
 hojas_austro = cargar_todas_las_hojas(EXCEL_URL_AUSTRO)
 hojas_jardin = cargar_todas_las_hojas(EXCEL_URL_JARDIN)
 
-# Pestañas Principales (Filtro por Entidad / Consolidado)
-tab_austro, tab_jardin, tab_todos = st.tabs(
-    ["Banco del Austro", "Jardín Azuayo", "Todos"]
+# Filtro principal en forma de lista desplegable para diferenciarlo de las pestañas internas
+banco_seleccionado = st.selectbox(
+    "Seleccionar Entidad / Vista:",
+    ["Banco del Austro", "Jardín Azuayo", "Todos"],
+    index=0,
+    key="selector_banco_principal",
 )
 
 # ==============================================================================
-# PESTAÑA 1: BANCO DEL AUSTRO
+# VISTA: BANCO DEL AUSTRO
 # ==============================================================================
-with tab_austro:
+if banco_seleccionado == "Banco del Austro":
     # 1. Retiros por Año
     df_raw_retiros = obtener_hoja(hojas_austro, "Retiros")
     df_retiros = pd.DataFrame()
@@ -57,32 +63,42 @@ with tab_austro:
         df_retiros["Fecha_dt"] = pd.to_datetime(
             df_retiros["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
         )
-        df_retiros = df_retiros.dropna(subset=["Fecha_dt"]).sort_values("Fecha_dt")
+        df_retiros = df_retiros.dropna(subset=["Fecha_dt"]).sort_values(
+            "Fecha_dt"
+        )
         df_retiros["Año"] = df_retiros["Fecha_dt"].dt.year
 
     if not df_retiros.empty:
         ultimo_retiro_row = df_retiros.iloc[-1]
         fecha_ultimo_retiro = ultimo_retiro_row["Fecha_dt"].strftime("%d/%m/%Y")
         valor_ultimo_retiro = ultimo_retiro_row["Valor"]
-        txt_ultimo_retiro = f"{fecha_ultimo_retiro} — ${valor_ultimo_retiro:,.2f}"
+        txt_ultimo_retiro = (
+            f"{fecha_ultimo_retiro} — ${valor_ultimo_retiro:,.2f}"
+        )
     else:
         txt_ultimo_retiro = "N/A"
 
     tabla_anos = (
-        df_retiros.groupby("Año")["Valor"]
-        .agg(
-            N_Retiros="count",
-            Total_USD="sum",
+        (
+            df_retiros.groupby("Año")["Valor"]
+            .agg(
+                N_Retiros="count",
+                Total_USD="sum",
+            )
+            .reset_index()
         )
-        .reset_index()
-    ) if not df_retiros.empty else pd.DataFrame()
+        if not df_retiros.empty
+        else pd.DataFrame()
+    )
 
     if not tabla_anos.empty:
         tabla_anos["Retiro_Dia"] = tabla_anos["Total_USD"] / 365
         tabla_anos["Año"] = tabla_anos["Año"].astype(str)
         tabla_anos.columns = ["Año", "Nº Retiros", "Total", "Retiro / Día"]
     else:
-        tabla_anos = pd.DataFrame(columns=["Año", "Nº Retiros", "Total", "Retiro / Día"])
+        tabla_anos = pd.DataFrame(
+            columns=["Año", "Nº Retiros", "Total", "Retiro / Día"]
+        )
 
     # 2. Transferencias Interbancarias
     df_raw_trans = obtener_hoja(hojas_austro, "Transferencias Interbancarias")
@@ -116,7 +132,11 @@ with tab_austro:
         ]
     else:
         tabla_trans = pd.DataFrame(
-            columns=["Entidad Financiera", "Nº Transferencias", "Total Transferido"]
+            columns=[
+                "Entidad Financiera",
+                "Nº Transferencias",
+                "Total Transferido",
+            ]
         )
 
     def dos_lineas_banco(nombre):
@@ -132,9 +152,9 @@ with tab_austro:
         return nombre_str
 
     if not tabla_trans.empty:
-        tabla_trans["Entidad Financiera"] = tabla_trans["Entidad Financiera"].apply(
-            dos_lineas_banco
-        )
+        tabla_trans["Entidad Financiera"] = tabla_trans[
+            "Entidad Financiera"
+        ].apply(dos_lineas_banco)
 
     df_trans_fechas = pd.DataFrame()
     if (
@@ -144,17 +164,24 @@ with tab_austro:
     ):
         df_trans_fechas = df_raw_trans[["Fecha", "Valor"]].dropna().copy()
         df_trans_fechas["Fecha_dt"] = pd.to_datetime(
-            df_trans_fechas["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
+            df_trans_fechas["Fecha"],
+            format="%d/%m/%Y",
+            dayfirst=True,
+            errors="coerce",
         )
-        df_trans_fechas = df_trans_fechas.dropna(subset=["Fecha_dt"]).sort_values(
-            "Fecha_dt"
-        )
+        df_trans_fechas = df_trans_fechas.dropna(
+            subset=["Fecha_dt"]
+        ).sort_values("Fecha_dt")
         df_trans_fechas["Año"] = df_trans_fechas["Fecha_dt"].dt.year
         if not df_trans_fechas.empty:
             ultima_trans_row = df_trans_fechas.iloc[-1]
-            fecha_ultima_trans = ultima_trans_row["Fecha_dt"].strftime("%d/%m/%Y")
+            fecha_ultima_trans = ultima_trans_row["Fecha_dt"].strftime(
+                "%d/%m/%Y"
+            )
             valor_ultima_trans = ultima_trans_row["Valor"]
-            txt_ultima_trans = f"{fecha_ultima_trans} — ${valor_ultima_trans:,.2f}"
+            txt_ultima_trans = (
+                f"{fecha_ultima_trans} — ${valor_ultima_trans:,.2f}"
+            )
         else:
             txt_ultima_trans = "N/A"
     else:
@@ -201,12 +228,17 @@ with tab_austro:
         df_compras["Establecimiento"] = df_compras["Descripción"].apply(
             categorizar_descripcion
         )
-        df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
+        df_compras["Valor"] = pd.to_numeric(
+            df_compras["Valor"], errors="coerce"
+        )
         df_compras = df_compras.dropna(subset=["Valor"])
 
         if "Fecha" in df_compras.columns:
             df_compras["Fecha_dt"] = pd.to_datetime(
-                df_compras["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
+                df_compras["Fecha"],
+                format="%d/%m/%Y",
+                dayfirst=True,
+                errors="coerce",
             )
             df_compras = df_compras.dropna(subset=["Fecha_dt"])
             df_compras["Año"] = df_compras["Fecha_dt"].dt.year
@@ -239,7 +271,10 @@ with tab_austro:
         df_swift = df_swift.dropna(subset=["Valor"])
         if "Fecha" in df_swift.columns:
             df_swift["Fecha_dt"] = pd.to_datetime(
-                df_swift["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
+                df_swift["Fecha"],
+                format="%d/%m/%Y",
+                dayfirst=True,
+                errors="coerce",
             )
             df_swift = df_swift.dropna(subset=["Fecha_dt"])
             df_swift["Año"] = df_swift["Fecha_dt"].dt.year
@@ -249,7 +284,9 @@ with tab_austro:
         if "Año" in df_temp.columns:
             anos_set_austro.update(df_temp["Año"].dropna().unique())
 
-    anos_disponibles_austro = ["Todos"] + [str(int(y)) for y in sorted(anos_set_austro)]
+    anos_disponibles_austro = ["Todos"] + [
+        str(int(y)) for y in sorted(anos_set_austro)
+    ]
 
     def render_custom_table(df):
         css = """
@@ -328,13 +365,18 @@ with tab_austro:
         </style>
         """
 
-        html = css + '<div class="table-container"><table class="custom-table"><thead><tr>'
+        html = (
+            css
+            + '<div class="table-container"><table class="custom-table"><thead><tr>'
+        )
 
         for idx, col in enumerate(df.columns):
             sticky_class = ' class="col-sticky"' if idx == 0 else ""
             clean_col = str(col).replace(" ($)", "").replace("$", "")
             header_text = (
-                clean_col.replace(" ", "<br>") if len(clean_col) > 10 else clean_col
+                clean_col.replace(" ", "<br>")
+                if len(clean_col) > 10
+                else clean_col
             )
             html += f"<th{sticky_class}>{header_text}</th>"
 
@@ -357,7 +399,9 @@ with tab_austro:
                     ):
                         formatted_val = f"${val:,.2f}"
                     else:
-                        formatted_val = f"{int(val):,}" if val == int(val) else f"{val:,}"
+                        formatted_val = (
+                            f"{int(val):,}" if val == int(val) else f"{val:,}"
+                        )
                 else:
                     formatted_val = str(val)
                 html += f"<td{sticky_class}>{formatted_val}</td>"
@@ -383,12 +427,20 @@ with tab_austro:
         """
 
     subtab1, subtab2, subtab3 = st.tabs(
-        ["Retiros por Año", "Transferencias Interbancarias", "Compras por Internet"]
+        [
+            "Retiros por Año",
+            "Transferencias Interbancarias",
+            "Compras por Internet",
+        ]
     )
 
     with subtab1:
         st.html(render_custom_table(tabla_anos))
-        st.html(render_kpi_card("Último Retiro (Fecha y Valor)", txt_ultimo_retiro))
+        st.html(
+            render_kpi_card(
+                "Último Retiro (Fecha y Valor)", txt_ultimo_retiro
+            )
+        )
 
     with subtab2:
         st.html(render_custom_table(tabla_trans))
@@ -408,11 +460,13 @@ with tab_austro:
         "Filtrar por Año (Austro):",
         anos_disponibles_austro,
         index=0,
-        key="filtro_austro"
+        key="filtro_austro",
     )
 
     if filtro_ano_austro == "Todos":
-        total_kpi_retiros = df_retiros["Valor"].sum() if not df_retiros.empty else 0.0
+        total_kpi_retiros = (
+            df_retiros["Valor"].sum() if not df_retiros.empty else 0.0
+        )
         if not df_retiros.empty:
             min_fecha = df_retiros["Fecha_dt"].min()
             max_fecha = df_retiros["Fecha_dt"].max()
@@ -428,7 +482,9 @@ with tab_austro:
             kpi_retiro_dia = 0.0
 
         total_kpi_trans = (
-            df_trans_fechas["Valor"].sum() if not df_trans_fechas.empty else 0.0
+            df_trans_fechas["Valor"].sum()
+            if not df_trans_fechas.empty
+            else 0.0
         )
         total_kpi_compras = (
             df_compras["Valor"].sum() if not df_compras.empty else 0.0
@@ -452,9 +508,9 @@ with tab_austro:
             kpi_retiro_dia = 0.0
 
         if not df_trans_fechas.empty and "Año" in df_trans_fechas.columns:
-            total_kpi_trans = df_trans_fechas[df_trans_fechas["Año"] == ano_sel][
-                "Valor"
-            ].sum()
+            total_kpi_trans = df_trans_fechas[
+                df_trans_fechas["Año"] == ano_sel
+            ]["Valor"].sum()
         else:
             total_kpi_trans = 0.0
 
@@ -466,7 +522,9 @@ with tab_austro:
             total_kpi_compras = 0.0
 
         if not df_swift.empty and "Año" in df_swift.columns:
-            total_kpi_swift = df_swift[df_swift["Año"] == ano_sel]["Valor"].sum()
+            total_kpi_swift = df_swift[df_swift["Año"] == ano_sel][
+                "Valor"
+            ].sum()
         else:
             total_kpi_swift = 0.0
 
@@ -480,36 +538,30 @@ with tab_austro:
 
     with col1:
         st.html(
-            render_kpi_card(
-                lbl_total_retiros, f"${total_kpi_retiros:,.2f}"
-            )
+            render_kpi_card(lbl_total_retiros, f"${total_kpi_retiros:,.2f}")
         )
-        st.html(
-            render_kpi_card(
-                lbl_retiro_dia, f"${kpi_retiro_dia:,.2f}"
-            )
-        )
-        st.html(
-            render_kpi_card(lbl_compras, f"${total_kpi_compras:,.2f}")
-        )
+        st.html(render_kpi_card(lbl_retiro_dia, f"${kpi_retiro_dia:,.2f}"))
+        st.html(render_kpi_card(lbl_compras, f"${total_kpi_compras:,.2f}"))
 
     with col2:
-        st.html(
-            render_kpi_card(lbl_trans, f"${total_kpi_trans:,.2f}")
-        )
+        st.html(render_kpi_card(lbl_trans, f"${total_kpi_trans:,.2f}"))
         st.html(render_kpi_card(lbl_swift, f"${total_kpi_swift:,.2f}"))
 
 # ==============================================================================
-# PESTAÑA 2: JARDÍN AZUAYO
+# VISTA: JARDÍN AZUAYO
 # ==============================================================================
-with tab_jardin:
-    st.info("Estructura lista para cargar y procesar los movimientos de Jardín Azuayo.")
+elif banco_seleccionado == "Jardín Azuayo":
+    st.info(
+        "Estructura lista para cargar y procesar los movimientos de Jardín Azuayo."
+    )
 
 # ==============================================================================
-# PESTAÑA 3: TODOS (CONSOLIDADO)
+# VISTA: TODOS (CONSOLIDADO)
 # ==============================================================================
-with tab_todos:
-    st.info("Estructura lista para mostrar los datos consolidados de ambos bancos.")
+else:
+    st.info(
+        "Estructura lista para mostrar los datos consolidados de ambos bancos."
+    )
 
 if __name__ == "__main__":
     if "streamlit" not in sys.argv[0]:
