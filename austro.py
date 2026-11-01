@@ -44,8 +44,10 @@ if not df_retiros.empty:
     fecha_ultimo_retiro = ultimo_retiro_row["Fecha_dt"].strftime("%d/%m/%Y")
     valor_ultimo_retiro = ultimo_retiro_row["Valor"]
     txt_ultimo_retiro = f"{fecha_ultimo_retiro} — ${valor_ultimo_retiro:,.2f}"
+    anos_disponibles = ["Todos"] + [str(y) for y in sorted(df_retiros["Año"].unique())]
 else:
     txt_ultimo_retiro = "N/A"
+    anos_disponibles = ["Todos"]
 
 tabla_anos = (
     df_retiros.groupby("Año")["Valor"]
@@ -58,18 +60,6 @@ tabla_anos = (
 tabla_anos["Retiro_Dia"] = tabla_anos["Total_USD"] / 365
 tabla_anos["Año"] = tabla_anos["Año"].astype(str)
 tabla_anos.columns = ["Año", "Nº Retiros", "Total", "Retiro / Día"]
-
-total_kpi_retiros = df_retiros["Valor"].sum()
-min_fecha = df_retiros["Fecha_dt"].min()
-max_fecha = df_retiros["Fecha_dt"].max()
-dias_totales_rango = (
-    (max_fecha - min_fecha).days
-    if pd.notnull(min_fecha) and pd.notnull(max_fecha)
-    else 1
-)
-kpi_retiro_dia_global = total_kpi_retiros / (
-    dias_totales_rango if dias_totales_rango > 0 else 1
-)
 
 # 2. Transferencias Interbancarias
 df_raw_trans = obtener_hoja(todas_las_hojas, "Transferencias Interbancarias")
@@ -369,17 +359,44 @@ with tab3:
 st.markdown("---")
 st.subheader("Indicadores Clave (KPIs)")
 
+filtro_ano_retiros = st.selectbox(
+    "Filtrar Retiros por Año:",
+    anos_disponibles,
+    index=0
+)
+
+if filtro_ano_retiros == "Todos":
+    total_kpi_retiros = df_retiros["Valor"].sum()
+    min_fecha = df_retiros["Fecha_dt"].min()
+    max_fecha = df_retiros["Fecha_dt"].max()
+    dias_totales_rango = (
+        (max_fecha - min_fecha).days
+        if pd.notnull(min_fecha) and pd.notnull(max_fecha)
+        else 1
+    )
+    kpi_retiro_dia = total_kpi_retiros / (
+        dias_totales_rango if dias_totales_rango > 0 else 1
+    )
+    lbl_total_retiros = "Total Retiros (Todos los Años)"
+    lbl_retiro_dia = "Retiro / Día (Todos los Años)"
+else:
+    df_retiros_filtrado = df_retiros[df_retiros["Año"] == int(filtro_ano_retiros)]
+    total_kpi_retiros = df_retiros_filtrado["Valor"].sum()
+    kpi_retiro_dia = total_kpi_retiros / 365
+    lbl_total_retiros = f"Total Retiros ({filtro_ano_retiros})"
+    lbl_retiro_dia = f"Retiro / Día ({filtro_ano_retiros})"
+
 col1, col2 = st.columns(2)
 
 with col1:
     st.html(
         render_kpi_card(
-            "Total Retiros (Todos los Años)", f"${total_kpi_retiros:,.2f}"
+            lbl_total_retiros, f"${total_kpi_retiros:,.2f}"
         )
     )
     st.html(
         render_kpi_card(
-            "Retiro / Día (Todos los Años)", f"${kpi_retiro_dia_global:,.2f}"
+            lbl_retiro_dia, f"${kpi_retiro_dia:,.2f}"
         )
     )
     st.html(
