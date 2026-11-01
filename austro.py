@@ -8,9 +8,9 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 if st.button("🔄 Actualizar Datos", use_container_width=True):
     st.rerun()
 
-# Título principal con fuente ajustada y tamaño responsive
+# Título principal centrado con fuente más grande y elegante
 st.html(
-    '<h2 style="font-size: 22px; font-weight: bold; margin-top: 10px; margin-bottom: 15px; color: #FFFFFF;">Movimientos: Austro y Jardín.</h2>'
+    '<h2 style="text-align: center; font-size: 26px; font-weight: bold; margin-top: 10px; margin-bottom: 20px; color: #FFFFFF;">Movimientos: Austro y Jardín.</h2>'
 )
 
 EXCEL_URL_AUSTRO = "https://docs.google.com/spreadsheets/d/19aw00haXlThBf0AlHwMsYNabeFGAbbjw/export?format=xlsx"
@@ -39,7 +39,7 @@ def obtener_hoja(dict_hojas, nombre_buscado):
 hojas_austro = cargar_todas_las_hojas(EXCEL_URL_AUSTRO)
 hojas_jardin = cargar_todas_las_hojas(EXCEL_URL_JARDIN)
 
-# Filtro principal en forma de lista desplegable para diferenciarlo de las pestañas internas
+# Filtro principal en lista desplegable para jerarquía clara
 banco_seleccionado = st.selectbox(
     "Seleccionar Entidad / Vista:",
     ["Banco del Austro", "Jardín Azuayo", "Todos"],
@@ -552,7 +552,7 @@ if banco_seleccionado == "Banco del Austro":
 # ==============================================================================
 elif banco_seleccionado == "Jardín Azuayo":
     st.info(
-        "Estructura lista para cargar y procesar los movimientos de Jardín Azuayo."
+        "Estructura lista para procesar las pestañas de Retiros, Transferencias y Compras de Jardín Azuayo."
     )
 
 # ==============================================================================
@@ -560,7 +560,7 @@ elif banco_seleccionado == "Jardín Azuayo":
 # ==============================================================================
 else:
     st.info(
-        "Estructura lista para mostrar los datos consolidados de ambos bancos."
+        "Estructura lista para mostrar los datos consolidados acumulados de ambas entidades."
     )
 
 if __name__ == "__main__":
