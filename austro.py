@@ -32,22 +32,26 @@ todas_las_hojas = cargar_todas_las_hojas(EXCEL_URL)
 
 # 1. Retiros por Año, Total y Retiro / Día Global
 df_raw_retiros = obtener_hoja(todas_las_hojas, "Retiros")
-df_retiros = df_raw_retiros[["Fecha", "Valor"]].dropna().copy()
-df_retiros["Fecha_dt"] = pd.to_datetime(
-    df_retiros["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
-)
-df_retiros = df_retiros.dropna(subset=["Fecha_dt"]).sort_values("Fecha_dt")
-df_retiros["Año"] = df_retiros["Fecha_dt"].dt.year
+df_retiros = pd.DataFrame()
+if (
+    not df_raw_retiros.empty
+    and "Fecha" in df_raw_retiros.columns
+    and "Valor" in df_raw_retiros.columns
+):
+    df_retiros = df_raw_retiros[["Fecha", "Valor"]].dropna().copy()
+    df_retiros["Fecha_dt"] = pd.to_datetime(
+        df_retiros["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
+    )
+    df_retiros = df_retiros.dropna(subset=["Fecha_dt"]).sort_values("Fecha_dt")
+    df_retiros["Año"] = df_retiros["Fecha_dt"].dt.year
 
 if not df_retiros.empty:
     ultimo_retiro_row = df_retiros.iloc[-1]
     fecha_ultimo_retiro = ultimo_retiro_row["Fecha_dt"].strftime("%d/%m/%Y")
     valor_ultimo_retiro = ultimo_retiro_row["Valor"]
     txt_ultimo_retiro = f"{fecha_ultimo_retiro} — ${valor_ultimo_retiro:,.2f}"
-    anos_disponibles = ["Todos"] + [str(y) for y in sorted(df_retiros["Año"].unique())]
 else:
     txt_ultimo_retiro = "N/A"
-    anos_disponibles = ["Todos"]
 
 tabla_anos = (
     df_retiros.groupby("Año")["Valor"]
@@ -63,28 +67,38 @@ tabla_anos.columns = ["Año", "Nº Retiros", "Total", "Retiro / Día"]
 
 # 2. Transferencias Interbancarias
 df_raw_trans = obtener_hoja(todas_las_hojas, "Transferencias Interbancarias")
-df_trans = df_raw_trans[["Institución", "Valor"]].dropna().copy()
-df_trans.loc[
-    df_trans["Institución"].str.contains(
-        "JARDIN AZUAYO|Jardín Azuayo", case=False, na=False
-    ),
-    "Institución",
-] = "Jardin Azuayo"
+df_trans_clean = pd.DataFrame()
+if (
+    not df_raw_trans.empty
+    and "Institución" in df_raw_trans.columns
+    and "Valor" in df_raw_trans.columns
+):
+    df_trans_clean = df_raw_trans[["Institución", "Valor"]].dropna().copy()
+    df_trans_clean.loc[
+        df_trans_clean["Institución"].str.contains(
+            "JARDIN AZUAYO|Jardín Azuayo", case=False, na=False
+        ),
+        "Institución",
+    ] = "Jardin Azuayo"
 
-tabla_trans = (
-    df_trans.groupby("Institución")["Valor"]
-    .agg(
-        N_Trans="count",
-        Total_USD="sum",
+    tabla_trans = (
+        df_trans_clean.groupby("Institución")["Valor"]
+        .agg(
+            N_Trans="count",
+            Total_USD="sum",
+        )
+        .reset_index()
+        .sort_values("Total_USD", ascending=False)
     )
-    .reset_index()
-    .sort_values("Total_USD", ascending=False)
-)
-tabla_trans.columns = [
-    "Entidad Financiera",
-    "Nº Transferencias",
-    "Total Transferido",
-]
+    tabla_trans.columns = [
+        "Entidad Financiera",
+        "Nº Transferencias",
+        "Total Transferido",
+    ]
+else:
+    tabla_trans = pd.DataFrame(
+        columns=["Entidad Financiera", "Nº Transferencias", "Total Transferido"]
+    )
 
 
 def dos_lineas_banco(nombre):
@@ -100,12 +114,12 @@ def dos_lineas_banco(nombre):
     return nombre_str
 
 
-tabla_trans["Entidad Financiera"] = tabla_trans["Entidad Financiera"].apply(
-    dos_lineas_banco
-)
+if not tabla_trans.empty:
+    tabla_trans["Entidad Financiera"] = tabla_trans["Entidad Financiera"].apply(
+        dos_lineas_banco
+    )
 
-total_kpi_trans = df_trans["Valor"].sum()
-
+df_trans_fechas = pd.DataFrame()
 if (
     not df_raw_trans.empty
     and "Fecha" in df_raw_trans.columns
@@ -118,6 +132,7 @@ if (
     df_trans_fechas = df_trans_fechas.dropna(subset=["Fecha_dt"]).sort_values(
         "Fecha_dt"
     )
+    df_trans_fechas["Año"] = df_trans_fechas["Fecha_dt"].dt.year
     if not df_trans_fechas.empty:
         ultima_trans_row = df_trans_fechas.iloc[-1]
         fecha_ultima_trans = ultima_trans_row["Fecha_dt"].strftime("%d/%m/%Y")
@@ -161,18 +176,25 @@ def categorizar_descripcion(desc):
         return desc_str.strip()
 
 
+df_compras = pd.DataFrame()
 if (
     not df_raw_compras.empty
     and "Descripción" in df_raw_compras.columns
     and "Valor" in df_raw_compras.columns
 ):
-    df_compras = df_raw_compras[["Descripción", "Valor"]].dropna().copy()
+    df_compras = df_raw_compras.copy()
     df_compras["Establecimiento"] = df_compras["Descripción"].apply(
         categorizar_descripcion
     )
-
     df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
     df_compras = df_compras.dropna(subset=["Valor"])
+
+    if "Fecha" in df_compras.columns:
+        df_compras["Fecha_dt"] = pd.to_datetime(
+            df_compras["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
+        )
+        df_compras = df_compras.dropna(subset=["Fecha_dt"])
+        df_compras["Año"] = df_compras["Fecha_dt"].dt.year
 
     tabla_compras = (
         df_compras.groupby("Establecimiento", as_index=False)["Valor"]
@@ -188,19 +210,32 @@ if (
         "Nº Compras",
         "Total Comprado",
     ]
-    total_kpi_compras = df_compras["Valor"].sum()
 else:
     tabla_compras = pd.DataFrame(
         columns=["Establecimiento", "Nº Compras", "Total Comprado"]
     )
-    total_kpi_compras = 0.0
 
 # 4. Swift
 df_raw_swift = obtener_hoja(todas_las_hojas, "Swift")
+df_swift = pd.DataFrame()
 if not df_raw_swift.empty and "Valor" in df_raw_swift.columns:
-    total_kpi_swift = pd.to_numeric(df_raw_swift["Valor"], errors="coerce").sum()
-else:
-    total_kpi_swift = 0.0
+    df_swift = df_raw_swift.copy()
+    df_swift["Valor"] = pd.to_numeric(df_swift["Valor"], errors="coerce")
+    df_swift = df_swift.dropna(subset=["Valor"])
+    if "Fecha" in df_swift.columns:
+        df_swift["Fecha_dt"] = pd.to_datetime(
+            df_swift["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
+        )
+        df_swift = df_swift.dropna(subset=["Fecha_dt"])
+        df_swift["Año"] = df_swift["Fecha_dt"].dt.year
+
+# Obtener lista unificada de todos los años disponibles
+anos_set = set()
+for df_temp in [df_retiros, df_trans_fechas, df_compras, df_swift]:
+    if "Año" in df_temp.columns:
+        anos_set.update(df_temp["Año"].dropna().unique())
+
+anos_disponibles = ["Todos"] + [str(int(y)) for y in sorted(anos_set)]
 
 
 def render_custom_table(df):
@@ -359,32 +394,76 @@ with tab3:
 st.markdown("---")
 st.subheader("Indicadores Clave (KPIs)")
 
-filtro_ano_retiros = st.selectbox(
-    "Filtrar Retiros por Año:",
+filtro_ano = st.selectbox(
+    "Filtrar por Año:",
     anos_disponibles,
     index=0
 )
 
-if filtro_ano_retiros == "Todos":
-    total_kpi_retiros = df_retiros["Valor"].sum()
-    min_fecha = df_retiros["Fecha_dt"].min()
-    max_fecha = df_retiros["Fecha_dt"].max()
-    dias_totales_rango = (
-        (max_fecha - min_fecha).days
-        if pd.notnull(min_fecha) and pd.notnull(max_fecha)
-        else 1
+if filtro_ano == "Todos":
+    total_kpi_retiros = df_retiros["Valor"].sum() if not df_retiros.empty else 0.0
+    if not df_retiros.empty:
+        min_fecha = df_retiros["Fecha_dt"].min()
+        max_fecha = df_retiros["Fecha_dt"].max()
+        dias_totales_rango = (
+            (max_fecha - min_fecha).days
+            if pd.notnull(min_fecha) and pd.notnull(max_fecha)
+            else 1
+        )
+        kpi_retiro_dia = total_kpi_retiros / (
+            dias_totales_rango if dias_totales_rango > 0 else 1
+        )
+    else:
+        kpi_retiro_dia = 0.0
+
+    total_kpi_trans = (
+        df_trans_fechas["Valor"].sum() if not df_trans_fechas.empty else 0.0
     )
-    kpi_retiro_dia = total_kpi_retiros / (
-        dias_totales_rango if dias_totales_rango > 0 else 1
+    total_kpi_compras = (
+        df_compras["Valor"].sum() if not df_compras.empty else 0.0
     )
+    total_kpi_swift = df_swift["Valor"].sum() if not df_swift.empty else 0.0
+
     lbl_total_retiros = "Total Retiros (Todos los Años)"
     lbl_retiro_dia = "Retiro / Día (Todos los Años)"
+    lbl_trans = "Total Transferencias"
+    lbl_compras = "Total Compras por Internet"
+    lbl_swift = "Total Swift"
 else:
-    df_retiros_filtrado = df_retiros[df_retiros["Año"] == int(filtro_ano_retiros)]
-    total_kpi_retiros = df_retiros_filtrado["Valor"].sum()
-    kpi_retiro_dia = total_kpi_retiros / 365
-    lbl_total_retiros = f"Total Retiros ({filtro_ano_retiros})"
-    lbl_retiro_dia = f"Retiro / Día ({filtro_ano_retiros})"
+    ano_sel = int(filtro_ano)
+
+    if not df_retiros.empty and "Año" in df_retiros.columns:
+        df_retiros_f = df_retiros[df_retiros["Año"] == ano_sel]
+        total_kpi_retiros = df_retiros_f["Valor"].sum()
+        kpi_retiro_dia = total_kpi_retiros / 365
+    else:
+        total_kpi_retiros = 0.0
+        kpi_retiro_dia = 0.0
+
+    if not df_trans_fechas.empty and "Año" in df_trans_fechas.columns:
+        total_kpi_trans = df_trans_fechas[df_trans_fechas["Año"] == ano_sel][
+            "Valor"
+        ].sum()
+    else:
+        total_kpi_trans = 0.0
+
+    if not df_compras.empty and "Año" in df_compras.columns:
+        total_kpi_compras = df_compras[df_compras["Año"] == ano_sel][
+            "Valor"
+        ].sum()
+    else:
+        total_kpi_compras = 0.0
+
+    if not df_swift.empty and "Año" in df_swift.columns:
+        total_kpi_swift = df_swift[df_swift["Año"] == ano_sel]["Valor"].sum()
+    else:
+        total_kpi_swift = 0.0
+
+    lbl_total_retiros = f"Total Retiros ({filtro_ano})"
+    lbl_retiro_dia = f"Retiro / Día ({filtro_ano})"
+    lbl_trans = f"Total Transferencias ({filtro_ano})"
+    lbl_compras = f"Total Compras por Internet ({filtro_ano})"
+    lbl_swift = f"Total Swift ({filtro_ano})"
 
 col1, col2 = st.columns(2)
 
@@ -400,14 +479,14 @@ with col1:
         )
     )
     st.html(
-        render_kpi_card("Total Compras por Internet", f"${total_kpi_compras:,.2f}")
+        render_kpi_card(lbl_compras, f"${total_kpi_compras:,.2f}")
     )
 
 with col2:
     st.html(
-        render_kpi_card("Total Transferencias", f"${total_kpi_trans:,.2f}")
+        render_kpi_card(lbl_trans, f"${total_kpi_trans:,.2f}")
     )
-    st.html(render_kpi_card("Total Swift", f"${total_kpi_swift:,.2f}"))
+    st.html(render_kpi_card(lbl_swift, f"${total_kpi_swift:,.2f}"))
 
 if __name__ == "__main__":
     if "streamlit" not in sys.argv[0]:
