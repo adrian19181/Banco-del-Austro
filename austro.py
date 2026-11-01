@@ -96,6 +96,24 @@ tabla_trans.columns = [
     "Total Transferido",
 ]
 
+
+def dos_lineas_banco(nombre):
+    nombre_str = str(nombre).strip()
+    words = nombre_str.split()
+    if len(words) == 2:
+        return f"{words[0]}<br>{words[1]}"
+    elif len(words) == 3 and words[1].lower() in ["de", "del", "la", "el"]:
+        return f"{words[0]} {words[1]}<br>{words[2]}"
+    elif len(words) > 1:
+        mid = len(words) // 2
+        return f"{' '.join(words[:mid])}<br>{' '.join(words[mid:])}"
+    return nombre_str
+
+
+tabla_trans["Entidad Financiera"] = tabla_trans["Entidad Financiera"].apply(
+    dos_lineas_banco
+)
+
 total_kpi_trans = df_trans["Valor"].sum()
 
 if (
