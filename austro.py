@@ -6,7 +6,7 @@ import streamlit as st
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 if st.button("🔄 Actualizar Datos", use_container_width=True):
-  st.rerun()
+    st.rerun()
 
 st.title("Banco del Austro")
 
@@ -15,17 +15,17 @@ EXCEL_URL = "https://docs.google.com/spreadsheets/d/19aw00haXlThBf0AlHwMsYNabeFG
 
 @st.cache_data(ttl=60)
 def cargar_todas_las_hojas(url):
-  return pd.read_excel(url, sheet_name=None)
+    return pd.read_excel(url, sheet_name=None)
 
 
 def obtener_hoja(dict_hojas, nombre_buscado):
-  for key in dict_hojas.keys():
-    if key.strip().lower() == nombre_buscado.strip().lower():
-      return dict_hojas[key]
-  for key in dict_hojas.keys():
-    if nombre_buscado.strip().lower() in key.strip().lower():
-      return dict_hojas[key]
-  return pd.DataFrame()
+    for key in dict_hojas.keys():
+        if key.strip().lower() == nombre_buscado.strip().lower():
+            return dict_hojas[key]
+    for key in dict_hojas.keys():
+        if nombre_buscado.strip().lower() in key.strip().lower():
+            return dict_hojas[key]
+    return pd.DataFrame()
 
 
 todas_las_hojas = cargar_todas_las_hojas(EXCEL_URL)
@@ -38,6 +38,14 @@ df_retiros["Fecha_dt"] = pd.to_datetime(
 )
 df_retiros = df_retiros.dropna(subset=["Fecha_dt"]).sort_values("Fecha_dt")
 df_retiros["Año"] = df_retiros["Fecha_dt"].dt.year
+
+if not df_retiros.empty:
+    ultimo_retiro_row = df_retiros.iloc[-1]
+    fecha_ultimo_retiro = ultimo_retiro_row["Fecha_dt"].strftime("%d/%m/%Y")
+    valor_ultimo_retiro = ultimo_retiro_row["Valor"]
+    txt_ultimo_retiro = f"{fecha_ultimo_retiro} — ${valor_ultimo_retiro:,.2f}"
+else:
+    txt_ultimo_retiro = "N/A"
 
 tabla_anos = (
     df_retiros.groupby("Año")["Valor"]
@@ -90,37 +98,59 @@ tabla_trans.columns = [
 
 total_kpi_trans = df_trans["Valor"].sum()
 
+if (
+    not df_raw_trans.empty
+    and "Fecha" in df_raw_trans.columns
+    and "Valor" in df_raw_trans.columns
+):
+    df_trans_fechas = df_raw_trans[["Fecha", "Valor"]].dropna().copy()
+    df_trans_fechas["Fecha_dt"] = pd.to_datetime(
+        df_trans_fechas["Fecha"], format="%d/%m/%Y", dayfirst=True, errors="coerce"
+    )
+    df_trans_fechas = df_trans_fechas.dropna(subset=["Fecha_dt"]).sort_values(
+        "Fecha_dt"
+    )
+    if not df_trans_fechas.empty:
+        ultima_trans_row = df_trans_fechas.iloc[-1]
+        fecha_ultima_trans = ultima_trans_row["Fecha_dt"].strftime("%d/%m/%Y")
+        valor_ultima_trans = ultima_trans_row["Valor"]
+        txt_ultima_trans = f"{fecha_ultima_trans} — ${valor_ultima_trans:,.2f}"
+    else:
+        txt_ultima_trans = "N/A"
+else:
+    txt_ultima_trans = "N/A"
+
 # 3. Compras por Internet
 df_raw_compras = obtener_hoja(todas_las_hojas, "Compras por internet")
 
 
 def categorizar_descripcion(desc):
-  desc_str = str(desc).upper()
-  if "AMAZON" in desc_str or "AMZN" in desc_str:
-    return "Amazon"
-  elif "ALIEXPRESS" in desc_str or "ALIPAY" in desc_str:
-    return "Aliexpress"
-  elif "SHEIN" in desc_str:
-    return "Shein"
-  elif "EBAY" in desc_str:
-    return "eBay"
-  elif "TEMU" in desc_str:
-    return "Temu"
-  elif any(
-      k in desc_str
-      for k in [
-          "TRANSEXPRES",
-          "LAARBOX",
-          "FLETE",
-          "EXPRESSWEB",
-          "TRANS EXPRESS",
-      ]
-  ):
-    return "Flete Laarbox"
-  elif "FARMASOL" in desc_str:
-    return "Farmasol"
-  else:
-    return desc_str.strip()
+    desc_str = str(desc).upper()
+    if "AMAZON" in desc_str or "AMZN" in desc_str:
+        return "Amazon"
+    elif "ALIEXPRESS" in desc_str or "ALIPAY" in desc_str:
+        return "Aliexpress"
+    elif "SHEIN" in desc_str:
+        return "Shein"
+    elif "EBAY" in desc_str:
+        return "eBay"
+    elif "TEMU" in desc_str:
+        return "Temu"
+    elif any(
+        k in desc_str
+        for k in [
+            "TRANSEXPRES",
+            "LAARBOX",
+            "FLETE",
+            "EXPRESSWEB",
+            "TRANS EXPRESS",
+        ]
+    ):
+        return "Flete Laarbox"
+    elif "FARMASOL" in desc_str:
+        return "Farmasol"
+    else:
+        return desc_str.strip()
 
 
 if (
@@ -128,45 +158,45 @@ if (
     and "Descripción" in df_raw_compras.columns
     and "Valor" in df_raw_compras.columns
 ):
-  df_compras = df_raw_compras[["Descripción", "Valor"]].dropna().copy()
-  df_compras["Establecimiento"] = df_compras["Descripción"].apply(
-      categorizar_descripcion
-  )
+    df_compras = df_raw_compras[["Descripción", "Valor"]].dropna().copy()
+    df_compras["Establecimiento"] = df_compras["Descripción"].apply(
+        categorizar_descripcion
+    )
 
-  df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
-  df_compras = df_compras.dropna(subset=["Valor"])
+    df_compras["Valor"] = pd.to_numeric(df_compras["Valor"], errors="coerce")
+    df_compras = df_compras.dropna(subset=["Valor"])
 
-  tabla_compras = (
-      df_compras.groupby("Establecimiento", as_index=False)["Valor"]
-      .agg(
-          N_Compras="count",
-          Total_USD="sum",
-      )
-      .sort_values("Total_USD", ascending=False)
-      .reset_index(drop=True)
-  )
-  tabla_compras.columns = [
-      "Establecimiento",
-      "Nº Compras",
-      "Total Comprado",
-  ]
-  total_kpi_compras = df_compras["Valor"].sum()
+    tabla_compras = (
+        df_compras.groupby("Establecimiento", as_index=False)["Valor"]
+        .agg(
+            N_Compras="count",
+            Total_USD="sum",
+        )
+        .sort_values("Total_USD", ascending=False)
+        .reset_index(drop=True)
+    )
+    tabla_compras.columns = [
+        "Establecimiento",
+        "Nº Compras",
+        "Total Comprado",
+    ]
+    total_kpi_compras = df_compras["Valor"].sum()
 else:
-  tabla_compras = pd.DataFrame(
-      columns=["Establecimiento", "Nº Compras", "Total Comprado"]
-  )
-  total_kpi_compras = 0.0
+    tabla_compras = pd.DataFrame(
+        columns=["Establecimiento", "Nº Compras", "Total Comprado"]
+    )
+    total_kpi_compras = 0.0
 
 # 4. Swift
 df_raw_swift = obtener_hoja(todas_las_hojas, "Swift")
 if not df_raw_swift.empty and "Valor" in df_raw_swift.columns:
-  total_kpi_swift = pd.to_numeric(df_raw_swift["Valor"], errors="coerce").sum()
+    total_kpi_swift = pd.to_numeric(df_raw_swift["Valor"], errors="coerce").sum()
 else:
-  total_kpi_swift = 0.0
+    total_kpi_swift = 0.0
 
 
 def render_custom_table(df):
-  css = """
+    css = """
     <style>
     .table-container {
         max-height: 420px;
@@ -242,65 +272,47 @@ def render_custom_table(df):
     </style>
     """
 
-  html = css + '<div class="table-container"><table class="custom-table"><thead><tr>'
+    html = css + '<div class="table-container"><table class="custom-table"><thead><tr>'
 
-  for idx, col in enumerate(df.columns):
-    sticky_class = ' class="col-sticky"' if idx == 0 else ""
-    clean_col = str(col).replace(" ($)", "").replace("$", "")
-    header_text = (
-        clean_col.replace(" ", "<br>") if len(clean_col) > 10 else clean_col
-    )
-    html += f"<th{sticky_class}>{header_text}</th>"
+    for idx, col in enumerate(df.columns):
+        sticky_class = ' class="col-sticky"' if idx == 0 else ""
+        clean_col = str(col).replace(" ($)", "").replace("$", "")
+        header_text = (
+            clean_col.replace(" ", "<br>") if len(clean_col) > 10 else clean_col
+        )
+        html += f"<th{sticky_class}>{header_text}</th>"
 
-  html += "</tr></thead><tbody>"
+    html += "</tr></thead><tbody>"
 
-  for row_idx, row in df.iterrows():
-    row_class = "row-even" if row_idx % 2 == 0 else "row-odd"
-    html += f'<tr class="{row_class}">'
-    for col_idx, val in enumerate(row):
-      sticky_class = ' class="col-sticky"' if col_idx == 0 else ""
-      if col_idx == 0:
-        formatted_val = str(val)
-      elif isinstance(val, (int, float)):
-        col_name = str(df.columns[col_idx])
-        if (
-            "Total" in col_name
-            or "Día" in col_name
-            or "Transferido" in col_name
-            or "Comprado" in col_name
-        ):
-          formatted_val = f"${val:,.2f}"
-        else:
-          formatted_val = f"{int(val):,}" if val == int(val) else f"{val:,}"
-      else:
-        formatted_val = str(val)
-      html += f"<td{sticky_class}>{formatted_val}</td>"
-    html += "</tr>"
+    for row_idx, row in df.iterrows():
+        row_class = "row-even" if row_idx % 2 == 0 else "row-odd"
+        html += f'<tr class="{row_class}">'
+        for col_idx, val in enumerate(row):
+            sticky_class = ' class="col-sticky"' if col_idx == 0 else ""
+            if col_idx == 0:
+                formatted_val = str(val)
+            elif isinstance(val, (int, float)):
+                col_name = str(df.columns[col_idx])
+                if (
+                    "Total" in col_name
+                    or "Día" in col_name
+                    or "Transferido" in col_name
+                    or "Comprado" in col_name
+                ):
+                    formatted_val = f"${val:,.2f}"
+                else:
+                    formatted_val = f"{int(val):,}" if val == int(val) else f"{val:,}"
+            else:
+                formatted_val = str(val)
+            html += f"<td{sticky_class}>{formatted_val}</td>"
+        html += "</tr>"
 
-  html += "</tbody></table></div>"
-  return html
-
-
-tab1, tab2, tab3 = st.tabs(
-    ["Retiros por Año", "Transferencias Interbancarias", "Compras por Internet"]
-)
-
-with tab1:
-  st.html(render_custom_table(tabla_anos))
-
-with tab2:
-  st.html(render_custom_table(tabla_trans))
-
-with tab3:
-  st.html(render_custom_table(tabla_compras))
-
-# Sección de KPIs debajo de las tablas
-st.markdown("---")
-st.subheader("Indicadores Clave (KPIs)")
+    html += "</tbody></table></div>"
+    return html
 
 
 def render_kpi_card(titulo, valor_str):
-  return f"""
+    return f"""
     <div style="
         background-color: #0F172A;
         border: 2px solid #FFEB3B;
@@ -316,29 +328,52 @@ def render_kpi_card(titulo, valor_str):
     """
 
 
+tab1, tab2, tab3 = st.tabs(
+    ["Retiros por Año", "Transferencias Interbancarias", "Compras por Internet"]
+)
+
+with tab1:
+    st.html(render_custom_table(tabla_anos))
+    st.html(render_kpi_card("Último Retiro (Fecha y Valor)", txt_ultimo_retiro))
+
+with tab2:
+    st.html(render_custom_table(tabla_trans))
+    st.html(
+        render_kpi_card(
+            "Última Transferencia (Fecha y Valor)", txt_ultima_trans
+        )
+    )
+
+with tab3:
+    st.html(render_custom_table(tabla_compras))
+
+# Sección de KPIs debajo de las tablas
+st.markdown("---")
+st.subheader("Indicadores Clave (KPIs)")
+
 col1, col2 = st.columns(2)
 
 with col1:
-  st.html(
-      render_kpi_card(
-          "Total Retiros (Todos los Años)", f"${total_kpi_retiros:,.2f}"
-      )
-  )
-  st.html(
-      render_kpi_card(
-          "Retiro / Día (Todos los Años)", f"${kpi_retiro_dia_global:,.2f}"
-      )
-  )
-  st.html(
-      render_kpi_card("Total Compras por Internet", f"${total_kpi_compras:,.2f}")
-  )
+    st.html(
+        render_kpi_card(
+            "Total Retiros (Todos los Años)", f"${total_kpi_retiros:,.2f}"
+        )
+    )
+    st.html(
+        render_kpi_card(
+            "Retiro / Día (Todos los Años)", f"${kpi_retiro_dia_global:,.2f}"
+        )
+    )
+    st.html(
+        render_kpi_card("Total Compras por Internet", f"${total_kpi_compras:,.2f}")
+    )
 
 with col2:
-  st.html(
-      render_kpi_card("Total Transferencias", f"${total_kpi_trans:,.2f}")
-  )
-  st.html(render_kpi_card("Total Swift", f"${total_kpi_swift:,.2f}"))
+    st.html(
+        render_kpi_card("Total Transferencias", f"${total_kpi_trans:,.2f}")
+    )
+    st.html(render_kpi_card("Total Swift", f"${total_kpi_swift:,.2f}"))
 
 if __name__ == "__main__":
-  if "streamlit" not in sys.argv[0]:
-    os.system(f'streamlit run "{__file__}" --server.port 8501')
+    if "streamlit" not in sys.argv[0]:
+        os.system(f'streamlit run "{__file__}" --server.port 8501')
